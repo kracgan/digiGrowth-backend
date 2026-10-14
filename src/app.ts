@@ -38,7 +38,6 @@ export const createApp = () => {
   };
 
   app.use(cors(corsOptions));
-  app.options("*", cors(corsOptions));
 
   // Parsers
   app.use(express.json({ limit: "5mb" }));
