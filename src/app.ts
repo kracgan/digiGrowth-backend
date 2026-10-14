@@ -28,40 +28,15 @@ export const createApp = () => {
     })
   );
 
-  // Allowed Origins list (normalized without trailing slashes)
-  const configuredOrigin = (ENV.FRONTEND_URL || "").trim().replace(/\/+$/, "");
-  const defaultAllowedOrigins = [
-    configuredOrigin,
-    "https://digi-growth-frontend.vercel.app",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3001",
-  ].filter(Boolean);
-
+  // Fully Permissive CORS (Permits any origin unconditionally)
   const corsOptions: cors.CorsOptions = {
-    origin: (origin, callback) => {
-      // Allow requests with no origin (e.g. server-to-server, curl, mobile apps)
-      if (!origin) return callback(null, true);
-
-      const cleanOrigin = origin.trim().replace(/\/+$/, "");
-      if (
-        defaultAllowedOrigins.includes(cleanOrigin) ||
-        cleanOrigin.endsWith(".vercel.app") ||
-        cleanOrigin.includes("digi-growth")
-      ) {
-        return callback(null, true);
-      }
-
-      return callback(null, false);
-    },
+    origin: true,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+    allowedHeaders: ["*"],
     optionsSuccessStatus: 204,
   };
 
-  // CORS Configuration
   app.use(cors(corsOptions));
   app.options("*", cors(corsOptions));
 
