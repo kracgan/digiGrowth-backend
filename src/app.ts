@@ -28,21 +28,42 @@ export const createApp = () => {
     })
   );
 
+  // Allowed Origins list (normalized without trailing slashes)
+  const configuredOrigin = (ENV.FRONTEND_URL || "").trim().replace(/\/+$/, "");
+  const defaultAllowedOrigins = [
+    configuredOrigin,
+    "https://digi-growth-frontend.vercel.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+  ].filter(Boolean);
+
+  const corsOptions: cors.CorsOptions = {
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. server-to-server, curl, mobile apps)
+      if (!origin) return callback(null, true);
+
+      const cleanOrigin = origin.trim().replace(/\/+$/, "");
+      if (
+        defaultAllowedOrigins.includes(cleanOrigin) ||
+        cleanOrigin.endsWith(".vercel.app") ||
+        cleanOrigin.includes("digi-growth")
+      ) {
+        return callback(null, true);
+      }
+
+      return callback(null, false);
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+    optionsSuccessStatus: 204,
+  };
+
   // CORS Configuration
-  app.use(
-    cors({
-      origin: [
-        ENV.FRONTEND_URL,
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-      ],
-      credentials: true,
-      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization"],
-    })
-  );
+  app.use(cors(corsOptions));
+  app.options("*", cors(corsOptions));
 
   // Parsers
   app.use(express.json({ limit: "5mb" }));
@@ -69,7 +90,7 @@ export const createApp = () => {
   app.use("/api", limiter);
 
   // Health Check
-  app.get("/api/health", (req, res) => {
+  const healthHandler = (req: express.Request, res: express.Response) => {
     return ApiResponse.success(
       res,
       {
@@ -80,19 +101,25 @@ export const createApp = () => {
       },
       "Digital Growth API service is operating normally"
     );
-  });
+  };
+  app.get("/api/health", healthHandler);
+  app.get("/health", healthHandler);
 
-  // Module Routes
-  app.use("/api/auth", authRoutes);
-  app.use("/api/organizations", organizationRoutes);
-  app.use("/api/learning", learningRoutes);
-  // Also mount directly under /api for PRD endpoint table compliance
-  app.use("/api/courses", learningRoutes);
-  app.use("/api/lessons", learningRoutes);
-  app.use("/api/planner-items", plannerRoutes);
-  app.use("/api/monthly-metrics", metricsRoutes);
-  app.use("/api/recommendations", recommendationsRoutes);
-  app.use("/api/admin", adminRoutes);
+  // Module Routes (mounted under /api and root alias for flexible client integration)
+  const mountRoutes = (prefix: string) => {
+    app.use(`${prefix}/auth`, authRoutes);
+    app.use(`${prefix}/organizations`, organizationRoutes);
+    app.use(`${prefix}/learning`, learningRoutes);
+    app.use(`${prefix}/courses`, learningRoutes);
+    app.use(`${prefix}/lessons`, learningRoutes);
+    app.use(`${prefix}/planner-items`, plannerRoutes);
+    app.use(`${prefix}/monthly-metrics`, metricsRoutes);
+    app.use(`${prefix}/recommendations`, recommendationsRoutes);
+    app.use(`${prefix}/admin`, adminRoutes);
+  };
+
+  mountRoutes("/api");
+  mountRoutes("");
 
   // 404 Handler
   app.use((req, res, next) => {
